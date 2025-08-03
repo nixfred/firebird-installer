@@ -5,7 +5,7 @@ Public installer for the private firebird repository.
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nixfred/firebird-installer/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nixfred/firebird-installer/master/install.sh | bash
 ```
 
 ## What This Does
