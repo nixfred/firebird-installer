@@ -60,8 +60,16 @@ log DEBUG "Checking for existing firebird installation at $HOME/firebird"
 if [ -d "$HOME/firebird" ]; then
     log INFO "Firebird already installed at $HOME/firebird"
     log INFO "Running existing installer..."
-    cd "$HOME/firebird" && ./install.sh
-    exit 0
+    if ! cd "$HOME/firebird"; then
+        log ERROR "Failed to change directory to $HOME/firebird"
+        exit 1
+    fi
+    if [ ! -x "./install.sh" ]; then
+        log ERROR "install.sh not found or not executable"
+        exit 1
+    fi
+    ./install.sh
+    exit $?
 fi
 
 # Try SSH first (fastest if configured)
@@ -70,10 +78,20 @@ log DEBUG "Running: git clone git@github.com:nixfred/firebird.git $HOME/firebird
 
 if git clone git@github.com:nixfred/firebird.git "$HOME/firebird" 2>>"$LOG_FILE"; then
     log SUCCESS "Cloned successfully with SSH"
-    cd "$HOME/firebird" && ./install.sh
-    exit 0
+    if ! cd "$HOME/firebird"; then
+        log ERROR "Failed to change directory to $HOME/firebird"
+        exit 1
+    fi
+    if [ ! -x "./install.sh" ]; then
+        log ERROR "install.sh not found or not executable"
+        exit 1
+    fi
+    ./install.sh
+    exit $?
 else
     log DEBUG "SSH clone failed, will try token method"
+    # Clean up any partial clone
+    rm -rf "$HOME/firebird" 2>/dev/null || true
 fi
 
 # SSH failed, try with token
@@ -94,6 +112,7 @@ echo ""
 # Prompt for token
 echo "Paste your GitHub token and press Enter:"
 read -s GITHUB_TOKEN
+echo  # New line after hidden input
 
 if [ -z "$GITHUB_TOKEN" ]; then
     log ERROR "No token provided"
@@ -102,7 +121,7 @@ if [ -z "$GITHUB_TOKEN" ]; then
     exit 1
 fi
 
-log DEBUG "Token received (length: ${#GITHUB_TOKEN} characters)"
+log DEBUG "Token received"
 
 # Try to clone with token
 log INFO "Cloning firebird with token..."
@@ -121,7 +140,17 @@ if git clone "https://${GITHUB_TOKEN}@github.com/nixfred/firebird.git" "$HOME/fi
     log DEBUG "Log file will be available at: $LOG_FILE"
     
     # Run the real installer
+    if [ ! -x "./install.sh" ]; then
+        log ERROR "install.sh not found or not executable"
+        exit 1
+    fi
     ./install.sh
+    EXIT_CODE=$?
+    
+    # Clear sensitive token from memory
+    GITHUB_TOKEN=""
+    
+    exit $EXIT_CODE
 else
     log ERROR "Failed to clone firebird repository"
     echo "   - Token has 'repo' scope"
@@ -129,6 +158,6 @@ else
     echo "   - You have access to nixfred/firebird"
     echo ""
     echo -e "${PURPLE}Check the log for details: $LOG_FILE${NC}"
-    echo -e "${PURPLE}Debug mode: DEBUG=true bash install.sh${NC}"
+    echo -e "${PURPLE}Debug mode: DEBUG=true bash get-firebird.sh${NC}"
     exit 1
 fi
