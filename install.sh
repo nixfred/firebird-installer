@@ -47,8 +47,8 @@ echo -e "${YELLOW}The token looks like: ghp_xxxxxxxxxxxxxxxxxxxx${NC}"
 echo ""
 
 # Prompt for token
-read -sp "Paste your GitHub token here (hidden): " GITHUB_TOKEN
-echo ""
+echo "Paste your GitHub token and press Enter:"
+read -s GITHUB_TOKEN
 
 if [ -z "$GITHUB_TOKEN" ]; then
     echo -e "${RED}❌ No token provided${NC}"
