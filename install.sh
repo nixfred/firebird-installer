@@ -57,8 +57,8 @@ fi
 
 # Try to clone with token
 echo -e "${YELLOW}Cloning firebird...${NC}"
-# Use token as username with 'x-oauth-basic' as password
-if git clone "https://${GITHUB_TOKEN}:x-oauth-basic@github.com/nixfred/firebird.git" "$HOME/firebird" 2>&1 | grep -v "Cloning into"; then
+# Clone with token
+if git clone "https://${GITHUB_TOKEN}@github.com/nixfred/firebird.git" "$HOME/firebird" 2>/dev/null; then
     echo -e "${GREEN}✓ Cloned successfully!${NC}"
     
     # Remove token from git config for security
