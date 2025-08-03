@@ -64,6 +64,8 @@ if [ -d "$HOME/firebird" ]; then
         log ERROR "Failed to change directory to $HOME/firebird"
         exit 1
     fi
+    # Make install.sh executable and run it
+    chmod +x install.sh
     if [ ! -x "./install.sh" ]; then
         log ERROR "install.sh not found or not executable"
         exit 1
@@ -82,12 +84,24 @@ if git clone git@github.com:nixfred/firebird.git "$HOME/firebird" 2>>"$LOG_FILE"
         log ERROR "Failed to change directory to $HOME/firebird"
         exit 1
     fi
+    # Make install.sh executable and run it
+    chmod +x install.sh
     if [ ! -x "./install.sh" ]; then
         log ERROR "install.sh not found or not executable"
         exit 1
     fi
     ./install.sh
-    exit $?
+    INSTALL_SUCCESS=$?
+    
+    # Clean up installer if firebird installation succeeded
+    if [ $INSTALL_SUCCESS -eq 0 ] && [ -d "$HOME/firebird" ] && [ -f "$HOME/firebird/firebird" ]; then
+        log SUCCESS "Cleaning up installer..."
+        SCRIPT_PATH="$0"
+        rm -f "$SCRIPT_PATH"
+        log SUCCESS "Installer removed"
+    fi
+    
+    exit $INSTALL_SUCCESS
 else
     log DEBUG "SSH clone failed, will try token method"
     # Clean up any partial clone
@@ -139,13 +153,22 @@ if git clone "https://${GITHUB_TOKEN}@github.com/nixfred/firebird.git" "$HOME/fi
     log INFO "Running firebird installer..."
     log DEBUG "Log file will be available at: $LOG_FILE"
     
-    # Run the real installer
+    # Make install.sh executable and run it
+    chmod +x install.sh
     if [ ! -x "./install.sh" ]; then
         log ERROR "install.sh not found or not executable"
         exit 1
     fi
     ./install.sh
     EXIT_CODE=$?
+    
+    # Clean up installer if firebird installation succeeded
+    if [ $EXIT_CODE -eq 0 ] && [ -d "$HOME/firebird" ] && [ -f "$HOME/firebird/firebird" ]; then
+        log SUCCESS "Cleaning up installer..."
+        SCRIPT_PATH="$0"
+        rm -f "$SCRIPT_PATH"
+        log SUCCESS "Installer removed"
+    fi
     
     # Clear sensitive token from memory
     GITHUB_TOKEN=""
