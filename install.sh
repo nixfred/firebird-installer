@@ -8,7 +8,47 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
 NC='\033[0m'
+
+# Logging setup
+LOG_FILE="/tmp/firebird-installer-$(date +%Y%m%d-%H%M%S).log"
+DEBUG=${DEBUG:-false}
+
+# Log function
+log() {
+    local level=$1
+    shift
+    local message="$@"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    
+    # Write to log file
+    echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
+    
+    # Also display based on level
+    case $level in
+        ERROR)
+            echo -e "${RED}❌ $message${NC}" >&2
+            ;;
+        SUCCESS)
+            echo -e "${GREEN}✓ $message${NC}"
+            ;;
+        INFO)
+            echo -e "${BLUE}ℹ️  $message${NC}"
+            ;;
+        DEBUG)
+            if [ "$DEBUG" = "true" ]; then
+                echo -e "${PURPLE}🔍 $message${NC}"
+            fi
+            ;;
+        *)
+            echo "$message"
+            ;;
+    esac
+}
+
+# Show log location at start
+echo -e "${PURPLE}📝 Installation log: $LOG_FILE${NC}"
 
 echo -e "${BLUE}╔═══════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║       🔥 Firebird Installer          ║${NC}"
@@ -16,23 +56,28 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 # Check if we already have firebird
+log DEBUG "Checking for existing firebird installation at $HOME/firebird"
 if [ -d "$HOME/firebird" ]; then
-    echo -e "${YELLOW}Firebird already installed at $HOME/firebird${NC}"
-    echo "Running existing installer..."
+    log INFO "Firebird already installed at $HOME/firebird"
+    log INFO "Running existing installer..."
     cd "$HOME/firebird" && ./install.sh
     exit 0
 fi
 
 # Try SSH first (fastest if configured)
-echo -e "${YELLOW}Attempting to clone firebird...${NC}"
-if git clone git@github.com:nixfred/firebird.git "$HOME/firebird" 2>/dev/null; then
-    echo -e "${GREEN}✓ Cloned successfully with SSH${NC}"
+log INFO "Attempting to clone firebird via SSH..."
+log DEBUG "Running: git clone git@github.com:nixfred/firebird.git $HOME/firebird"
+
+if git clone git@github.com:nixfred/firebird.git "$HOME/firebird" 2>>"$LOG_FILE"; then
+    log SUCCESS "Cloned successfully with SSH"
     cd "$HOME/firebird" && ./install.sh
     exit 0
+else
+    log DEBUG "SSH clone failed, will try token method"
 fi
 
 # SSH failed, try with token
-echo -e "${YELLOW}SSH access not configured. Let's use a token instead.${NC}"
+log INFO "SSH access not configured. Let's use a token instead."
 echo ""
 echo "You need a GitHub Personal Access Token to clone the private firebird repo."
 echo ""
@@ -51,26 +96,39 @@ echo "Paste your GitHub token and press Enter:"
 read -s GITHUB_TOKEN
 
 if [ -z "$GITHUB_TOKEN" ]; then
-    echo -e "${RED}❌ No token provided${NC}"
+    log ERROR "No token provided"
+    log DEBUG "Token was empty or not entered"
+    echo "Installation cancelled. Log file: $LOG_FILE"
     exit 1
 fi
 
+log DEBUG "Token received (length: ${#GITHUB_TOKEN} characters)"
+
 # Try to clone with token
-echo -e "${YELLOW}Cloning firebird...${NC}"
-# Clone with token
-if git clone "https://${GITHUB_TOKEN}@github.com/nixfred/firebird.git" "$HOME/firebird" 2>/dev/null; then
-    echo -e "${GREEN}✓ Cloned successfully!${NC}"
+log INFO "Cloning firebird with token..."
+log DEBUG "Clone URL: https://[TOKEN]@github.com/nixfred/firebird.git"
+
+# Clone with token and capture output
+if git clone "https://${GITHUB_TOKEN}@github.com/nixfred/firebird.git" "$HOME/firebird" 2>>"$LOG_FILE"; then
+    log SUCCESS "Cloned successfully!"
     
     # Remove token from git config for security
     cd "$HOME/firebird"
+    log DEBUG "Removing token from git config for security"
     git remote set-url origin git@github.com:nixfred/firebird.git
+    
+    log INFO "Running firebird installer..."
+    log DEBUG "Log file will be available at: $LOG_FILE"
     
     # Run the real installer
     ./install.sh
 else
-    echo -e "${RED}❌ Failed to clone. Please check:${NC}"
+    log ERROR "Failed to clone firebird repository"
     echo "   - Token has 'repo' scope"
     echo "   - Token is valid"
     echo "   - You have access to nixfred/firebird"
+    echo ""
+    echo -e "${PURPLE}Check the log for details: $LOG_FILE${NC}"
+    echo -e "${PURPLE}Debug mode: DEBUG=true bash install.sh${NC}"
     exit 1
 fi
